@@ -12,10 +12,9 @@ spec:
       labels:
         app: tigergraph
     spec:
-      serviceAccountName: tigergraph-installer
       initContainers:
       - name: init-tigergraph
-        image: docker.tigergraph.com/tigergraph-k8s-installer:3.4.0
+        image: alpine:3.14
         env:
           - name: SERVICE_NAME
             valueFrom:
@@ -37,26 +36,20 @@ spec:
               configMapKeyRef:
                 name: env-config
                 key: cluster_size
-        command:
+        command: 
         - "/bin/sh"
         - "-c"
-        - |
-          # set -e;
-          pod_cnt=0;
-          echo -n Waiting for tigergraph;
-          until [ ${pod_cnt} -eq ${CLUSTER_SIZE} ];
+        - >
+          set -e;
+          for i in $(seq 1 ${CLUSTER_SIZE});
           do
-            pod_cnt=0;
-            for i in $(seq 1 ${CLUSTER_SIZE});
+            until nslookup ${POD_PREFIX}-$((i-1)).${SERVICE_NAME}.${NAMESPACE}.svc.cluster.local;
             do
-              ready=$(kubectl get pod ${POD_PREFIX}-$((i-1)) -o json | jq -c '.status.containerStatuses[] | select(.name=="tigergraph").ready');
-              if [ ${ready} == "true" ]; then pod_cnt=$((${pod_cnt}  + 1)); fi
+              echo waiting for tigergraph;
+              sleep 1;
             done;
-            sleep 15;
-            echo -n .;
           done;
-          echo;
-
+          sleep 15;
       containers:
       - name: cluster-installer
         image: docker.tigergraph.com/tigergraph-k8s-installer:3.4.0
